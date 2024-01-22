@@ -39,13 +39,6 @@ bot.setMyCommands([
   },
 ]);
 
-bot.onText(/\/start/, async (msg) => {
-  const { id } = msg.chat;
-  const user = await db.getUserById(id);
-  const userObj = new controller[user.role](user);
-  await bot.sendMessage(id, userObj.greetings(), { parse_mode: 'MarkdownV2' });
-});
-
 const registration = async (id) => {
   if (Object.hasOwn(appState.registration, id)) {
     const { mainMsgId } = appState.registration[id];
@@ -66,16 +59,17 @@ const registration = async (id) => {
 const regPoints = {
   registration_name: (userId) => bot
     .sendMessage(userId, 'Введите свои данные таким образом:\nИмя Фамилия')
-    .then(() => {
+    .then(({ message_id: msgId }) => {
       appState.registration = update(appState.registration, {
-        $merge: { [userId]: { status: 'name' } },
+        [userId]: { $merge: { status: 'name', addMsg: msgId } },
       });
+      console.log(appState);
     }),
   registration_phone: (userId) => bot
     .sendMessage(userId, 'Введите свои данные таким образом:\n+7987-654-1212')
     .then(() => {
       appState.registration = update(appState.registration, {
-        $merge: { [userId]: { status: 'phone' } },
+        [userId]: { $merge: { status: 'phone' } },
       });
       console.log(appState);
     }),
@@ -83,8 +77,10 @@ const regPoints = {
     .sendMessage(userId, 'Введите свои данные таким образом:\n1234 5678 1234 5678')
     .then(() => {
       appState.registration = update(appState.registration, {
-        $merge: { [userId]: { status: 'card' } },
+        [userId]: { $merge: { status: 'card' } },
       });
+      console.log(appState);
+      // bot.deleteMessage(userId, appState.registration[userId].msgId);
     }),
 };
 
@@ -109,6 +105,32 @@ bot.on('message', async (msg) => {
   }
   if (!appState.registration[userId]) return;
   if (appState.registration[userId].status === 'started') return;
+  const { status } = appState.registration[userId];
+  const map = {
+    name: async () => {
+      const { addMsg: addMsgId } = appState.registration[userId];
+      bot.deleteMessage(userId, addMsgId);
+      const { name: prevName } = appState.registration[userId];
+      appState.registration = update(appState.registration, {
+        [userId]: { $merge: { status: 'process', name: text, addMsg: null } },
+      });
+      const markupWname = keyboards.registration.filter(([{ id }]) => id !== 'name');
+      if (appState.registration[userId].name !== prevName) {
+        await bot.editMessageReplyMarkup({
+          inline_keyboard: [[{
+            text: appState.registration[userId].name,
+            callback_data: 'registration_name',
+          }], ...markupWname],
+        }, { chat_id: userId, message_id: appState.registration[userId].mainMsgId });
+      }
+    },
+    phone: () => {},
+    card: () => {},
+  };
+  map[status]();
+  console.log(msg);
+  console.log(appState);
+});
 
 // bot.onText(/\/photo/, async (msg) => {
 //   const { id } = msg.chat;

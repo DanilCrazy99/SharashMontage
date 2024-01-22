@@ -1,5 +1,6 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
+import update from 'immutability-helper';
 
 export default class FakeDatabase {
   constructor(pathFile) {
@@ -8,12 +9,17 @@ export default class FakeDatabase {
     this.ext = path.extname(pathFile);
   }
 
-  async getData(pathFile) {
+  async getData() {
     await readFile(this.originPath, 'utf-8').then((newData) => {
       this.data = newData;
     }).catch((e) => {
       throw new Error(e);
     });
+  }
+
+  async writeData(newData) {
+    const newTransaction = update(this.data, { $merge: { newData } });
+    console.log(newTransaction);
   }
 
   typesFakeDBs = {
