@@ -10,10 +10,11 @@ const appState = {
   registration: {},
 }; // список пользователей кто находится на этапе регистрации
 // {
+//   status
 //   userId
-//   name + familyname
-//   number
-//   cardNumber
+//   name
+//   phone
+//   card
 // }
 
 const db = new FakeDatabase(process.env.DB_PATH);
@@ -46,22 +47,21 @@ bot.onText(/\/start/, async (msg) => {
 });
 
 const registration = async (id) => {
+  if (Object.hasOwn(appState.registration, id)) {
+    const { mainMsgId } = appState.registration[id];
+    bot.deleteMessage(id, mainMsgId);
+  }
   appState.registration = update(appState.registration, {
     $merge: { [id]: { status: 'started' } },
   });
-  console.log(appState);
   const { message_id: msgId } = await bot.sendMessage(id, 'Необходимо заполнить следующие поля:', {
     reply_markup: {
       inline_keyboard: keyboards.registration,
     },
   });
-  appState.registration = update(appState.registration, { [id]: { $merge: { msgId } } });
+  appState.registration = update(appState.registration, { [id]: { $merge: { mainMsgId: msgId } } });
+  console.log(appState);
 };
-
-bot.onText(/\/registration/, async (msg) => {
-  const { id } = msg.chat;
-  registration(id);
-});
 
 const regPoints = {
   registration_name: (userId) => bot
@@ -94,6 +94,21 @@ bot.on('callback_query', async (msg) => {
   console.log(userId, data);
   await regPoints[data](userId);
 });
+
+bot.on('message', async (msg) => {
+  const { chat, text } = msg;
+  const { id: userId } = chat;
+  if (/\/registration/.test(text)) {
+    await registration(userId);
+    return;
+  }
+  if (/\/start/.test(text)) {
+    const user = await db.getUserById(userId);
+    const userObj = new controller[user.role](user);
+    await bot.sendMessage(userId, userObj.greetings(), { parse_mode: 'MarkdownV2' });
+  }
+  if (!appState.registration[userId]) return;
+  if (appState.registration[userId].status === 'started') return;
 
 // bot.onText(/\/photo/, async (msg) => {
 //   const { id } = msg.chat;
