@@ -5,20 +5,13 @@ import 'dotenv/config';
 
 import FakeDatabase from './utils/databases/fakeDatabase.js';
 import controller from './users/controller.js';
-import { dictionary, makeColumnMarkup, makeEffect } from './src/keyboards.js';
+import { dictionary, makeEffect } from './src/keyboards.js';
 import registrationStages from './src/stages/registration.js';
 import botCommands from './src/botCommands.js';
 
 const appState = {
-  registration: {},
-}; // список пользователей кто находится на этапе регистрации
-// {
-//   status
-//   userId
-//   name
-//   phone
-//   card
-// }
+  registration: {}, // список пользователей кто находится на этапе регистрации
+};
 
 const db = new FakeDatabase(process.env.DB_PATH);
 db.getData();
@@ -38,9 +31,7 @@ const registration = async (id) => {
     $merge: { [id]: { status: 'started' } },
   });
   const { message_id, reply_markup } = await bot.sendMessage(id, 'Необходимо заполнить следующие поля:', {
-    reply_markup: {
-      inline_keyboard: makeColumnMarkup(dictionary.registration),
-    },
+    reply_markup: dictionary(appState.registration[id]).registration,
   });
   appState.registration = update(
     appState.registration,
@@ -97,11 +88,3 @@ bot.on('message', async (msg) => {
   mapEffects[status]();
   console.log(appState.registration[id]);
 });
-
-// bot.onText(/\/photo/, async (msg) => {
-//   const { id } = msg.chat;
-//   const { photos } = await bot.getUserProfilePhotos(id);
-//   const { file_id } = photos[1][1];
-//   console.log(await bot.getFileStream(file_id));
-//   writeFile('photo', await bot.getFileStream(file_id));
-// })

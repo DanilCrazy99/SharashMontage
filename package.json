@@ -1,6 +1,6 @@
 {
   "name": "sharash-bot",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Проект для компании \"Шараш монтаж\"",
   "main": "main.js",
   "type": "module",
