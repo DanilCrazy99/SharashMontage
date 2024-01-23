@@ -5,13 +5,12 @@ import 'dotenv/config';
 
 import FakeDatabase from './utils/databases/fakeDatabase.js';
 import controller from './users/controller.js';
-import { dictionary, makeColumnMarkup } from './src/keyboards.js';
+import { dictionary, makeColumnMarkup, makeEffect } from './src/keyboards.js';
 import registrationStages from './src/stages/registration.js';
 import botCommands from './src/botCommands.js';
 
 const appState = {
   registration: {},
-  keyboard: {},
 }; // список пользователей кто находится на этапе регистрации
 // {
 //   status
@@ -38,22 +37,23 @@ const registration = async (id) => {
   appState.registration = update(appState.registration, {
     $merge: { [id]: { status: 'started' } },
   });
-  const { message_id } = await bot.sendMessage(id, 'Необходимо заполнить следующие поля:', {
+  const { message_id, reply_markup } = await bot.sendMessage(id, 'Необходимо заполнить следующие поля:', {
     reply_markup: {
       inline_keyboard: makeColumnMarkup(dictionary.registration),
     },
   });
   appState.registration = update(
     appState.registration,
-    { [id]: { $merge: { mainMsgId: message_id } } },
+    { [id]: { $merge: { message_id, reply_markup } } },
   );
   console.log(appState.registration[id]);
 };
 
-const changeState = (userId, status, additionalMsg) => {
+const changeState = (userId, newObj) => {
   appState.registration = update(appState.registration, {
-    [userId]: { $merge: { status, addMsg: additionalMsg } },
+    [userId]: { $merge: newObj },
   });
+  return appState;
 };
 
 const regMap = registrationStages(bot, changeState);
@@ -62,7 +62,7 @@ bot.on('callback_query', async (msg) => {
   const { data, from } = msg;
   const { id } = from;
   console.log('Query param: ', data);
-  await regMap[data](id);
+  await regMap[data](id, appState);
 });
 
 bot.on('message', async (msg) => {
@@ -79,46 +79,20 @@ bot.on('message', async (msg) => {
   }
   const { [id]: userRegData = null } = appState.registration;
   if (!userRegData) return;
-  const { status, addMsg: addMsgId } = userRegData;
+  const { status } = userRegData;
   if (userRegData.status === 'started') return;
   const mapEffects = {
-    name: async () => {
-      bot.deleteMessage(id, addMsgId);
-      const { name: prevName } = appState.registration[id];
-      appState.registration = update(appState.registration, {
-        [id]: { $merge: { status: 'process', name: text, addMsg: null } },
-      });
-      if (appState.registration[id].name !== prevName) {
-        const { reply_markup, message_id } = await bot.editMessageReplyMarkup({
-          inline_keyboard: makeColumnMarkup(
-            dictionary.registration,
-            { text, callback_data: 'registration_name' },
-          ),
-        }, { chat_id: id, message_id: appState.registration[id].mainMsgId });
-        appState.keyboard = update(appState.keyboard, {
-          [id]: { $set: { reply_markup, message_id } },
+    name: () => makeEffect(bot, appState, 'name', changeState, msg),
+    phone: () => makeEffect(bot, appState, 'phone', changeState, msg),
+    card: () => makeEffect(bot, appState, 'card', changeState, msg),
+    process: () => {
+      bot.sendMessage(id, 'Для начала пройдите регистрацию.')
+        .then(({ message_id }) => {
+          setTimeout(() => {
+            bot.deleteMessage(id, message_id);
+          }, 5000);
         });
-      }
     },
-    phone: async () => {
-      bot.deleteMessage(id, addMsgId);
-      const { phone: prevPhone } = appState.registration[id];
-      appState.registration = update(appState.registration, {
-        [id]: { $merge: { status: 'process', phone: text, addMsg: null } },
-      });
-      if (appState.registration[id].phone !== prevPhone) {
-        const { reply_markup, message_id } = await bot.editMessageReplyMarkup({
-          inline_keyboard: makeColumnMarkup(
-            dictionary.registration,
-            { text, callback_data: 'registration_phone' },
-          ),
-        }, { chat_id: id, message_id: appState.registration[id].mainMsgId });
-        appState.keyboard = update(appState.keyboard, {
-          [id]: { $set: { reply_markup, message_id } },
-        });
-      }
-    },
-    card: () => {},
   };
   mapEffects[status]();
   console.log(appState.registration[id]);
