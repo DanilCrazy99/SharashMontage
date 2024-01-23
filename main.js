@@ -56,20 +56,9 @@ const registration = async (id) => {
   console.log(appState);
 };
 
-const regPoints = {
-  registration_name: (userId) => bot
-    .sendMessage(userId, 'Введите свои данные таким образом:\nИмя Фамилия')
-    .then(({ message_id: msgId }) => {
+const changeState = (userId, status, additionalMsg) => {
       appState.registration = update(appState.registration, {
-        [userId]: { $merge: { status: 'name', addMsg: msgId } },
-      });
-      console.log(appState);
-    }),
-  registration_phone: (userId) => bot
-    .sendMessage(userId, 'Введите свои данные таким образом:\n+7987-654-1212')
-    .then(() => {
-      appState.registration = update(appState.registration, {
-        [userId]: { $merge: { status: 'phone' } },
+    [userId]: { $merge: { status, addMsg: additionalMsg } },
       });
       console.log(appState);
     }),
