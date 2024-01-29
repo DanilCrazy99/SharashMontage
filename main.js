@@ -4,10 +4,11 @@ import update from 'immutability-helper';
 import 'dotenv/config';
 
 import FakeDatabase from './utils/databases/fakeDatabase.js';
-import controller from './users/controller.js';
+import controller from './src/users/controller.js';
 import { dictionary, makeEffect } from './src/keyboards.js';
 import registrationStages from './src/stages/registration.js';
 import botCommands from './src/botCommands.js';
+import Guest from './src/users/classes/Guest.js';
 
 const appState = {
   registration: {}, // список пользователей кто находится на этапе регистрации
@@ -28,22 +29,32 @@ const registration = async (id) => {
     bot.deleteMessage(id, mainMsgId);
   }
   appState.registration = update(appState.registration, {
-    $merge: { [id]: { status: 'started' } },
+    $merge: { [id]: { status: 'process' } },
   });
-  const { message_id, reply_markup } = await bot.sendMessage(id, 'Необходимо заполнить следующие поля:', {
+  const { message_id } = await bot.sendMessage(id, 'Необходимо заполнить следующие поля:', {
     reply_markup: dictionary(appState.registration[id]).registration,
   });
   appState.registration = update(
     appState.registration,
-    { [id]: { $merge: { message_id, reply_markup } } },
+    { [id]: { $merge: { message_id } } },
   );
-  console.log(appState.registration[id]);
 };
 
-const changeState = (userId, newObj) => {
-  appState.registration = update(appState.registration, {
-    [userId]: { $merge: newObj },
-  });
+const changeState = (userId, newObj, param) => {
+  if (param) {
+    const map = {
+      unsetId: () => {
+        appState.registration = update(appState.registration, {
+          $unset: [userId],
+        });
+      },
+    };
+    map[param]();
+  } else {
+    appState.registration = update(appState.registration, {
+      [userId]: { $merge: newObj },
+    });
+  }
   return appState;
 };
 
@@ -52,8 +63,24 @@ const regMap = registrationStages(bot, changeState);
 bot.on('callback_query', async (msg) => {
   const { data, from } = msg;
   const { id } = from;
-  console.log('Query param: ', data);
-  await regMap[data](id, appState);
+  if (appState.registration[id]) {
+    await regMap[data](id, appState);
+    const map = {
+      final: () => {
+        const { name, phone, info } = appState.registration[id];
+        db.writeData({
+          [id]: {
+            name, phone, info, date: new Date(),
+          },
+        });
+      },
+    };
+    if (appState.registration[id].status === 'final') {
+      map[appState.registration[id].status]();
+      changeState(id, {}, 'unsetId');
+    }
+    // if (appState.registration[id].status === 'final') map.final();
+  }
 });
 
 bot.on('message', async (msg) => {
@@ -66,16 +93,17 @@ bot.on('message', async (msg) => {
   if (/\/start/.test(text)) {
     const user = await db.getUserById(id);
     const userObj = new controller[user.role](user);
-    await bot.sendMessage(id, userObj.greetings(), { parse_mode: 'MarkdownV2' });
+    bot.sendMessage(id, userObj.greetings()).then(() => {
+      if (userObj instanceof Guest) bot.sendMessage(id, 'Для начала тебе нужно пройти\n/registration.');
+    });
   }
   const { [id]: userRegData = null } = appState.registration;
   if (!userRegData) return;
   const { status } = userRegData;
-  if (userRegData.status === 'started') return;
   const mapEffects = {
     name: () => makeEffect(bot, appState, 'name', changeState, msg),
     phone: () => makeEffect(bot, appState, 'phone', changeState, msg),
-    card: () => makeEffect(bot, appState, 'card', changeState, msg),
+    info: () => makeEffect(bot, appState, 'info', changeState, msg),
     process: () => {
       bot.sendMessage(id, 'Для начала пройдите регистрацию.')
         .then(({ message_id }) => {
@@ -86,5 +114,4 @@ bot.on('message', async (msg) => {
     },
   };
   mapEffects[status]();
-  console.log(appState.registration[id]);
 });
