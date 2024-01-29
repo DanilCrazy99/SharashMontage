@@ -5,8 +5,20 @@ const roles = {
   worker: 'работяга',
 };
 
-export default class User {
-  constructor(user) {
+interface UserInterface {
+  userId: number,
+  firstname: string,
+  familyname: string,
+  roleName: string,
+}
+
+export default class User implements UserInterface {
+  userId;
+  firstname;
+  familyname;
+  roleName;
+
+  constructor(user: {id: number, firstname: string, familyname: string, role: string}) {
     const {
       id, firstname, familyname, role,
     } = user;

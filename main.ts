@@ -23,7 +23,7 @@ const bot = new TelegramBot(process.env.API_KEY_BOT, {
 
 bot.setMyCommands(botCommands);
 
-const registration = async (id) => {
+const registration = async (id: number) => {
   if (Object.hasOwn(appState.registration, id)) {
     const { mainMsgId } = appState.registration[id];
     bot.deleteMessage(id, mainMsgId);
@@ -40,7 +40,7 @@ const registration = async (id) => {
   );
 };
 
-const changeState = (userId, newObj, param) => {
+const changeState = (userId: number, newObj: object, param: string) => {
   if (param) {
     const map = {
       unsetId: () => {
@@ -63,7 +63,7 @@ const regMap = registrationStages(bot, changeState);
 bot.on('callback_query', async (msg) => {
   const { data, from } = msg;
   const { id } = from;
-  if (appState.registration[id]) {
+  if (appState.registration[id] && data) {
     await regMap[data](id, appState);
     const map = {
       final: () => {
