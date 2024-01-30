@@ -10,7 +10,16 @@ import registrationStages from './src/stages/registration.js';
 import botCommands from './src/botCommands.js';
 import Guest from './src/users/classes/Guest.js';
 
-const appState = {
+const appState: {
+  registration: {
+    [id: number]: {
+      status: string,
+      name: string,
+      phone: string,
+      info: string,
+    },
+  },
+} = {
   registration: {}, // список пользователей кто находится на этапе регистрации
 };
 
@@ -42,7 +51,9 @@ const registration = async (id: number) => {
 
 const changeState = (userId: number, newObj: object, param: string) => {
   if (param) {
-    const map = {
+    const map: {
+      [key: string]: () => void;
+    } = {
       unsetId: () => {
         appState.registration = update(appState.registration, {
           $unset: [userId],
