@@ -12,8 +12,8 @@ export default class FakeDatabase {
   typesFakeDBs = {
     '.json': {
       parseData: async (data) => {
-        if (Object.keys(data).length < 1) return data;
-        return JSON.parse(data);
+        if (typeof data === 'string') return JSON.parse(data);
+        return data;
       },
     },
   };
@@ -29,9 +29,7 @@ export default class FakeDatabase {
           res(this.data);
         }
       }).catch((e) => {
-        if (e.code === 'ENOENT') {
-          console.log('Пустая база данных');
-        } else rej(e);
+        if (e.code !== 'ENOENT') rej(e);
       });
     });
   }
