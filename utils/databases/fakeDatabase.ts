@@ -4,10 +4,22 @@ import update from 'immutability-helper';
 
 type Data = {
   users?: {
-    [x: number]: {}
+    [x: number]: {
+      name: string,
+      phone: string,
+      info?: string, 
+      role: string,
+    }
   },
   docs?: {},
-  registration?: {},
+  registration?: {
+    [x: number]: {
+      name: string,
+      phone: string,
+      info?: string,
+      date: Date,
+    }
+  },
 }
 
 export default class FakeDatabase {
