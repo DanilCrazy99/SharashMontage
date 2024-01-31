@@ -2,58 +2,65 @@ import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import update from 'immutability-helper';
 
+type Data = {
+  users?: {
+    [x: number]: {}
+  },
+  docs?: {},
+  registration?: {},
+}
+
 export default class FakeDatabase {
-  constructor(pathFile) {
+  originPath;
+  data: Data = {};
+  ext;
+
+  constructor(pathFile: string) {
     this.originPath = pathFile;
-    this.data = {};
     this.ext = path.extname(pathFile);
   }
 
-  typesFakeDBs = {
+  typesFakeDBs: {
+    [ext: string]: {
+      parseData: (a: string) => Promise<object>
+    }
+  } = {
     '.json': {
-      parseData: async (data) => {
-        if (Object.keys(data).length < 1) return data;
-        return JSON.parse(data);
-      },
+      parseData: (data: string) => new Promise((res) => {
+        res(JSON.parse(data));
+      }),
     },
   };
 
-  getData() {
+  getData():Promise<Data> {
     return new Promise((res, rej) => {
       readFile(this.originPath, 'utf-8').then((newData) => {
         if (newData) {
           const { ext } = this;
           this.typesFakeDBs[ext].parseData(newData).then((result) => {
             this.data = result;
-          });
-          res(this.data);
+          }).then(() => res(this.data));
         }
       }).catch((e) => {
-        if (e.code === 'ENOENT') {
-          console.log('Пустая база данных');
-        } else rej(e);
+        if (e.code !== 'ENOENT') rej(e);
       });
     });
   }
 
-  writeData(newData) {
-    this.getData().then(() => {
-      const oldData = this.data || JSON.parse(this.data);
-      const newObj = update(oldData, { $merge: newData });
-      writeFile(this.originPath, JSON.stringify(newObj));
-    });
+  writeData(newData: {}) {
+    return new Promise(() => {
+      this.getData().then(() => {
+        const oldData = this.data;
+        const newObj = update(oldData, { $merge: newData });
+        this.data = newObj;
+        return this.data;
+      }).then(data => writeFile(this.originPath, JSON.stringify(data)));
+    })
   }
 
-  // async refreshData() {
-  //   this.data
-  // }
-
-  async getUserById(userId) {
-    await this.getData();
-    const { ext, data } = this;
-    const { users = {} } = await this.typesFakeDBs[ext].parseData(data);
-    if (Object.keys(users).length < 1) return { role: 'guest' };
-    const user = users.find(({ id }) => id === userId);
-    return user ?? { role: 'guest' };
-  }
+  getUserById(userId: number) {
+      const { users = {} } = this.data;
+      if (Object.keys(users).length < 1) return { role: 'guest' };
+      return users[userId] ?? { role: 'guest' };
+  };
 }
