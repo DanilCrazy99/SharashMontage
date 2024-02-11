@@ -1,9 +1,8 @@
 {
   "name": "sharash-bot",
-  "version": "0.1.1-alpha",
+  "version": "0.0.1-alpha",
   "description": "Проект для компании \"Шараш монтаж\"",
-  "main": "main.js",
-  "type": "module",
+  "main": "launcher.js",
   "private": true,
   "keywords": [
     "bot",
@@ -13,16 +12,17 @@
   "license": "ISC",
   "dependencies": {
     "dotenv": "^16.3.1",
-    "immutability-helper": "^3.1.1",
-    "immutable": "^5.0.0-beta.4",
     "node-telegram-bot-api": "^0.64.0",
     "typescript": "^5.3.3"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
     "@types/node-telegram-bot-api": "^0.64.2",
+    "@typescript-eslint/eslint-plugin": "^6.20.0",
+    "@typescript-eslint/parser": "^6.20.0",
     "eslint": "^8.56.0",
     "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-airbnb-typescript": "^17.1.0",
     "eslint-plugin-jest": "^27.6.3",
     "jest": "^29.7.0"
   }
